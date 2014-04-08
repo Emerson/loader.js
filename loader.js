@@ -33,6 +33,15 @@ var define, requireModule, require, requirejs;
   }
 
   requirejs = require = requireModule = function(name) {
+
+    try {
+      console.log('shim for node_require: ' + name);
+      return node_require(name);
+    }
+    catch (e) {
+      console.log('node module not found, trying browser require');
+    }
+
     if (state[name] !== FAILED &&
         seen.hasOwnProperty(name)) {
       return seen[name];
