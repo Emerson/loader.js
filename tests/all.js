@@ -21,6 +21,7 @@ module('loader.js api', {
 test('has api', function(){
   equal(typeof require, 'function');
   equal(typeof define, 'function');
+  ok(define.amd);
   equal(typeof requirejs, 'function');
   equal(typeof requireModule, 'function');
 });
@@ -41,6 +42,20 @@ test('simple define/require', function(){
   equal(fooAgain, undefined);
   equal(fooCalled, 1);
 
+  deepEqual(keys(requirejs.entries), ['foo']);
+});
+
+
+test('define without deps', function(){
+  var fooCalled = 0;
+
+  define('foo', function() {
+    fooCalled++;
+  });
+
+  var foo = require('foo');
+  equal(foo, undefined);
+  equal(fooCalled, 1);
   deepEqual(keys(requirejs.entries), ['foo']);
 });
 
@@ -128,6 +143,24 @@ test('deep nested relative import/export', function(){
   equal(require('foo/a/b/c'), 'baz');
 });
 
+test('top-level relative import/export', function(){
+  expect(2);
+
+  define('foo', ['./bar'], function(bar) {
+    equal(bar.baz, 'baz');
+
+    return bar.baz;
+  });
+
+  define('bar', [], function() {
+    return {
+      baz: 'baz'
+    };
+  });
+
+  equal(require('foo'), 'baz');
+});
+
 test('runtime cycles', function(){
   define('foo', ['bar', 'exports'], function(bar, __exports__) {
     __exports__.quz = function() {
@@ -149,4 +182,66 @@ test('runtime cycles', function(){
 
   equal(foo.quz(), bar.baz, 'cycle foo depends on bar');
   equal(bar.baz(), foo.quz, 'cycle bar depends on foo');
+});
+
+test('basic CJS mode', function() {
+  define('a/foo', ['require', 'exports', 'module'], function(require, exports, module) {
+    module.exports = {
+      bar: require('./bar').name
+    };
+  });
+
+  define('a/bar', ['require', 'exports', 'module'], function(require, exports, module) {
+    exports.name = 'bar';
+  });
+
+  var foo = require('a/foo');
+
+  equal(foo.bar, 'bar');
+});
+
+test('pass default deps if arguments are expected and deps not passed', function() {
+  define('foo', function(require, exports, module) {
+    equal(arguments.length, 3);
+  });
+
+  require('foo');
+});
+
+test('if factory returns a value it is used as export', function() {
+  define('foo', ['require', 'exports', 'module'], function(require, exports, module) {
+    return {
+      bar:'bar'
+    };
+  });
+
+  var foo = require('foo');
+
+  equal(foo.bar, 'bar');
+});
+
+test("if a module has no default property assume the return is the default", function() {
+  define('foo', [], function() {
+    return {
+      bar:'bar'
+    };
+  });
+
+  var foo = require('foo')['default'];
+
+  equal(foo.bar, 'bar');
+});
+
+
+test("if a CJS style module has no default export assume module.exports is the default", function() {
+  define('Foo', ['require', 'exports', 'module'], function(require, exports, module) {
+    module.exports = function Foo() {
+      this.bar = 'bar';
+    };
+  });
+
+  var Foo = require('Foo')['default'];
+  var foo = new Foo();
+
+  equal(foo.bar, 'bar');
 });
